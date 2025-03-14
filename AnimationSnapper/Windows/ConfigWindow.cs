@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Numerics;
+using AnimationSnapper.Config;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
 
-namespace SamplePlugin.Windows;
+namespace AnimationSnapper.Windows;
 
 public class ConfigWindow : Window, IDisposable
 {

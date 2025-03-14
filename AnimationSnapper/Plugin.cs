@@ -2,11 +2,13 @@
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using System.IO;
+using AnimationSnapper.Config;
+using AnimationSnapper.Service;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
-using SamplePlugin.Windows;
+using AnimationSnapper.Windows;
 
-namespace SamplePlugin;
+namespace AnimationSnapper;
 
 public sealed class Plugin : IDalamudPlugin
 {
@@ -17,11 +19,13 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
-    private const string CommandName = "/pmycommand";
+    private const string CommandName = "/snapper";
 
     public Configuration Configuration { get; init; }
+    
+    public HousingService HousingService { get; init; }
 
-    public readonly WindowSystem WindowSystem = new("SamplePlugin");
+    public readonly WindowSystem WindowSystem = new("AnimationSnapper");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
 
@@ -54,8 +58,10 @@ public sealed class Plugin : IDalamudPlugin
 
         // Add a simple message to the log with level set to information
         // Use /xllog to open the log window in-game
-        // Example Output: 00:57:54.959 | INF | [SamplePlugin] ===A cool log message from Sample Plugin===
+        // Example Output: 00:57:54.959 | INF | [AnimationSnapper] ===A cool log message from Sample Plugin===
         Log.Information($"===A cool log message from {PluginInterface.Manifest.Name}===");
+
+        HousingService = new HousingService();
     }
 
     public void Dispose()
@@ -72,6 +78,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         // in response to the slash command, just toggle the display status of our main ui
         ToggleMainUI();
+        HousingService.GetClosestItemDistance(197799u);
     }
 
     private void DrawUI() => WindowSystem.Draw();
