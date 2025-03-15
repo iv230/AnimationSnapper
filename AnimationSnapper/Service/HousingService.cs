@@ -18,7 +18,7 @@ public class HousingService
             return new Vector3();
         }
 
-        var minDistance = new Vector3();
+        var minDistance = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         foreach (var housingFurniturePtr in allFurniture)
         {
             var housingFurniture = housingFurniturePtr.Value;

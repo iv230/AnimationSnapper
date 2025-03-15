@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Numerics;
 using AnimationSnapper.Config;
+using AnimationSnapper.Model;
+using AnimationSnapper.Service;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
 
@@ -8,53 +10,81 @@ namespace AnimationSnapper.Windows;
 
 public class ConfigWindow : Window, IDisposable
 {
-    private Configuration Configuration;
+    private readonly Configuration configuration;
+    private readonly HousingService housingService;
+    private readonly SnappingService snappingService;
+    private string newSnappingName = "";
+    private Vector3 closestItemPosition;
 
-    // We give this window a constant ID using ###
-    // This allows for labels being dynamic, like "{FPS Counter}fps###XYZ counter window",
-    // and the window ID will always be "###XYZ counter window" for ImGui
-    public ConfigWindow(Plugin plugin) : base("A Wonderful Configuration Window###With a constant ID")
+    public ConfigWindow(Plugin plugin, HousingService housingService, SnappingService snappingService) : base("Configuration###ConfigWindow")
     {
-        Flags = ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
-                ImGuiWindowFlags.NoScrollWithMouse;
+        Flags = ImGuiWindowFlags.AlwaysAutoResize;
 
-        Size = new Vector2(232, 90);
-        SizeCondition = ImGuiCond.Always;
-
-        Configuration = plugin.Configuration;
+        configuration = plugin.Configuration;
+        this.housingService = housingService;
+        this.snappingService = snappingService;
     }
 
     public void Dispose() { }
 
     public override void PreDraw()
     {
-        // Flags must be added or removed before Draw() is being called, or they won't apply
-        if (Configuration.IsConfigWindowMovable)
-        {
-            Flags &= ~ImGuiWindowFlags.NoMove;
-        }
-        else
-        {
-            Flags |= ImGuiWindowFlags.NoMove;
-        }
     }
 
     public override void Draw()
     {
-        // can't ref a property, so use a local copy
-        var configValue = Configuration.SomePropertyToBeSavedAndWithADefault;
-        if (ImGui.Checkbox("Random Config Bool", ref configValue))
+        closestItemPosition = housingService.GetClosestItemDistance(197799u);
+
+        ImGui.Text("Snapping List:");
+
+        if (ImGui.BeginTable("##SnappingTable", 4, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg))
         {
-            Configuration.SomePropertyToBeSavedAndWithADefault = configValue;
-            // can save immediately on change, if you don't want to provide a "Save and Close" button
-            Configuration.Save();
+            ImGui.TableSetupColumn("Name");
+            ImGui.TableSetupColumn("Offset X");
+            ImGui.TableSetupColumn("Offset Y");
+            ImGui.TableSetupColumn("Actions");
+            ImGui.TableHeadersRow();
+
+            for (var i = 0; i < configuration.Snappings.Count; i++)
+            {
+                var snapping = configuration.Snappings[i];
+                ImGui.TableNextRow();
+
+                ImGui.TableNextColumn();
+                ImGui.Text(snapping.Name);
+
+                ImGui.TableNextColumn();
+                ImGui.Text(snapping.OffsetX.ToString("F2"));
+
+                ImGui.TableNextColumn();
+                ImGui.Text(snapping.OffsetY.ToString("F2"));
+
+                ImGui.TableNextColumn();
+                if (ImGui.Button($"Delete##{i}"))
+                {
+                    Plugin.Log.Information($"Deleting snapping: {snapping.Name}");
+                    snappingService.RemoveSnapping(snapping);
+                }
+            }
+            ImGui.EndTable();
         }
 
-        var movable = Configuration.IsConfigWindowMovable;
-        if (ImGui.Checkbox("Movable Config Window", ref movable))
+        ImGui.Separator();
+        ImGui.Text("Add New Snapping");
+        ImGui.InputText("Name", ref newSnappingName, 100);
+
+        ImGui.Text($"Offset X: {closestItemPosition.X:F2}");
+        ImGui.Text($"Offset Z: {closestItemPosition.Z:F2}");
+
+        if (ImGui.Button("Add Snapping"))
         {
-            Configuration.IsConfigWindowMovable = movable;
-            Configuration.Save();
+            if (!string.IsNullOrWhiteSpace(newSnappingName))
+            {
+                Plugin.Log.Information($"Adding new snapping: {newSnappingName} with X={closestItemPosition.X}, Z={closestItemPosition.Z}");
+                snappingService.AddSnapping(new Snapping { Name = newSnappingName, OffsetX = closestItemPosition.X, OffsetY = closestItemPosition.Z });
+                configuration.Save();
+                newSnappingName = "";
+            }
         }
     }
 }

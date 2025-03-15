@@ -19,11 +19,15 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
-    private const string CommandName = "/snapper";
+    private const string MainCommandName = "/snapper";
+    private const string ConfigCommandName = "/snapperconf";
+    private const string DebugCommandName = "/snapperdebug";
 
     public Configuration Configuration { get; init; }
     
     public HousingService HousingService { get; init; }
+
+    public SnappingService SnappingService { get; init; }
 
     public readonly WindowSystem WindowSystem = new("AnimationSnapper");
     private ConfigWindow ConfigWindow { get; init; }
@@ -32,17 +36,24 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        HousingService = new HousingService();
+        SnappingService = new SnappingService(Configuration);
 
-        // you might normally want to embed resources and load them from the manifest stream
-        var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
-
-        ConfigWindow = new ConfigWindow(this);
-        MainWindow = new MainWindow(this, goatImagePath);
+        ConfigWindow = new ConfigWindow(this, HousingService, SnappingService);
+        MainWindow = new MainWindow(this, HousingService, SnappingService);
 
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
 
-        CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
+        CommandManager.AddHandler(MainCommandName, new CommandInfo(OnMainCommand)
+        {
+            HelpMessage = "A useful message to display in /xlhelp"
+        });
+        CommandManager.AddHandler(ConfigCommandName, new CommandInfo(OnConfCommand)
+        {
+            HelpMessage = "A useful message to display in /xlhelp"
+        });
+        CommandManager.AddHandler(DebugCommandName, new CommandInfo(OnDebugCommand)
         {
             HelpMessage = "A useful message to display in /xlhelp"
         });
@@ -60,8 +71,6 @@ public sealed class Plugin : IDalamudPlugin
         // Use /xllog to open the log window in-game
         // Example Output: 00:57:54.959 | INF | [AnimationSnapper] ===A cool log message from Sample Plugin===
         Log.Information($"===A cool log message from {PluginInterface.Manifest.Name}===");
-
-        HousingService = new HousingService();
     }
 
     public void Dispose()
@@ -71,14 +80,23 @@ public sealed class Plugin : IDalamudPlugin
         ConfigWindow.Dispose();
         MainWindow.Dispose();
 
-        CommandManager.RemoveHandler(CommandName);
+        CommandManager.RemoveHandler(MainCommandName);
     }
 
-    private void OnCommand(string command, string args)
+    private void OnMainCommand(string command, string args)
     {
-        // in response to the slash command, just toggle the display status of our main ui
         ToggleMainUI();
-        HousingService.GetClosestItemDistance(197799u);
+    }
+    
+    private void OnConfCommand(string command, string args)
+    {
+        ToggleConfigUI();
+    }
+
+    private void OnDebugCommand(string command, string args)
+    {
+        var vector = HousingService.GetClosestItemDistance(197799u);
+        Log.Debug(vector.ToString());
     }
 
     private void DrawUI() => WindowSystem.Draw();
